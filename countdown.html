@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Countdown to December 4, 2026</title>
+  <style>
+    :root { color-scheme: dark; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      background: #0f172a;
+      color: #e2e8f0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+    }
+    .card {
+      background: #111827;
+      border: 1px solid #334155;
+      border-radius: 16px;
+      padding: 28px;
+      width: min(700px, 92vw);
+      text-align: center;
+      box-shadow: 0 10px 25px rgba(0,0,0,.35);
+    }
+    h1 { margin: 0 0 8px; font-size: clamp(1.3rem, 3vw, 2rem); }
+    p { margin: 0 0 20px; color: #94a3b8; }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(80px, 1fr));
+      gap: 12px;
+    }
+    .unit {
+      background: #1e293b;
+      border-radius: 12px;
+      padding: 14px 8px;
+    }
+    .value {
+      font-size: clamp(1.4rem, 4vw, 2rem);
+      font-weight: 700;
+      display: block;
+      color: #f8fafc;
+    }
+    .label {
+      font-size: .82rem;
+      color: #94a3b8;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+    }
+    .done {
+      margin-top: 18px;
+      font-weight: 600;
+      color: #22c55e;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <h1>Countdown to December 4, 2026</h1>
+    <p id="targetText">Target: Dec 4, 2026 00:00:00</p>
+
+    <section class="grid" aria-live="polite">
+      <div class="unit"><span class="value" id="days">0</span><span class="label">Days</span></div>
+      <div class="unit"><span class="value" id="hours">0</span><span class="label">Hours</span></div>
+      <div class="unit"><span class="value" id="minutes">0</span><span class="label">Minutes</span></div>
+      <div class="unit"><span class="value" id="seconds">0</span><span class="label">Seconds</span></div>
+    </section>
+
+    <div class="done" id="done">🎉 It's December 4, 2026!</div>
+  </main>
+
+  <script>
+    const target = new Date('2026-12-04T00:00:00');
+
+    const daysEl = document.getElementById('days');
+    const hoursEl = document.getElementById('hours');
+    const minutesEl = document.getElementById('minutes');
+    const secondsEl = document.getElementById('seconds');
+    const doneEl = document.getElementById('done');
+
+    function updateCountdown() {
+      const now = new Date();
+      const diff = target - now;
+
+      if (diff <= 0) {
+        daysEl.textContent = '0';
+        hoursEl.textContent = '0';
+        minutesEl.textContent = '0';
+        secondsEl.textContent = '0';
+        doneEl.style.display = 'block';
+        return;
+      }
+
+      const totalSeconds = Math.floor(diff / 1000);
+      const days = Math.floor(totalSeconds / (24 * 60 * 60));
+      const hours = Math.floor((totalSeconds % (24 * 60 * 60)) / 3600);
+      const minutes = Math.floor((totalSeconds % 3600) / 60);
+      const seconds = totalSeconds % 60;
+
+      daysEl.textContent = String(days);
+      hoursEl.textContent = String(hours).padStart(2, '0');
+      minutesEl.textContent = String(minutes).padStart(2, '0');
+      secondsEl.textContent = String(seconds).padStart(2, '0');
+    }
+
+    updateCountdown();
+    setInterval(updateCountdown, 1000);
+  </script>
+</body>
+</html>
