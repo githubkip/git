@@ -48,6 +48,61 @@
       text-transform: uppercase;
       letter-spacing: .08em;
     }
+
+    .timeline-wrap {
+      margin-top: 20px;
+      text-align: left;
+      background: #0b1220;
+      border: 1px solid #334155;
+      border-radius: 12px;
+      padding: 14px;
+    }
+    .timeline-title {
+      margin: 0 0 10px;
+      color: #cbd5e1;
+      font-weight: 600;
+      font-size: 0.95rem;
+    }
+    .timeline {
+      position: relative;
+      height: 14px;
+      background: #1f2937;
+      border-radius: 999px;
+      overflow: hidden;
+    }
+    .timeline-progress {
+      position: absolute;
+      inset: 0 auto 0 0;
+      width: 0%;
+      background: linear-gradient(90deg, #22d3ee, #3b82f6);
+      border-radius: 999px;
+      transition: width .4s ease;
+    }
+    .timeline-marker {
+      position: absolute;
+      top: 50%;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: #f8fafc;
+      box-shadow: 0 0 0 3px rgba(59,130,246,.25);
+      transform: translate(-50%, -50%);
+      transition: left .4s ease;
+    }
+    .timeline-labels {
+      margin-top: 10px;
+      display: flex;
+      justify-content: space-between;
+      font-size: .82rem;
+      color: #94a3b8;
+    }
+    .timeline-status {
+      margin-top: 8px;
+      text-align: center;
+      color: #cbd5e1;
+      font-size: .9rem;
+    }
+
     .done {
       margin-top: 18px;
       font-weight: 600;
@@ -68,17 +123,39 @@
       <div class="unit"><span class="value" id="seconds">0</span><span class="label">Seconds</span></div>
     </section>
 
+    <section class="timeline-wrap" aria-label="Timeline from start of year to countdown end date">
+      <h2 class="timeline-title">2026 Timeline Progress</h2>
+      <div class="timeline">
+        <div class="timeline-progress" id="timelineProgress"></div>
+        <div class="timeline-marker" id="timelineMarker" aria-hidden="true"></div>
+      </div>
+      <div class="timeline-labels">
+        <span>Jan 1, 2026</span>
+        <span>Dec 4, 2026</span>
+      </div>
+      <div class="timeline-status" id="timelineStatus">0% complete</div>
+    </section>
+
     <div class="done" id="done">🎉 It's December 4, 2026!</div>
   </main>
 
   <script>
     const target = new Date('2026-12-04T00:00:00');
+    const timelineStart = new Date('2026-01-01T00:00:00');
 
     const daysEl = document.getElementById('days');
     const hoursEl = document.getElementById('hours');
     const minutesEl = document.getElementById('minutes');
     const secondsEl = document.getElementById('seconds');
     const doneEl = document.getElementById('done');
+
+    const timelineProgressEl = document.getElementById('timelineProgress');
+    const timelineMarkerEl = document.getElementById('timelineMarker');
+    const timelineStatusEl = document.getElementById('timelineStatus');
+
+    function clamp(value, min, max) {
+      return Math.min(Math.max(value, min), max);
+    }
 
     function updateCountdown() {
       const now = new Date();
@@ -90,19 +167,27 @@
         minutesEl.textContent = '0';
         secondsEl.textContent = '0';
         doneEl.style.display = 'block';
-        return;
+      } else {
+        const totalSeconds = Math.floor(diff / 1000);
+        const days = Math.floor(totalSeconds / (24 * 60 * 60));
+        const hours = Math.floor((totalSeconds % (24 * 60 * 60)) / 3600);
+        const minutes = Math.floor((totalSeconds % 3600) / 60);
+        const seconds = totalSeconds % 60;
+
+        daysEl.textContent = String(days);
+        hoursEl.textContent = String(hours).padStart(2, '0');
+        minutesEl.textContent = String(minutes).padStart(2, '0');
+        secondsEl.textContent = String(seconds).padStart(2, '0');
       }
 
-      const totalSeconds = Math.floor(diff / 1000);
-      const days = Math.floor(totalSeconds / (24 * 60 * 60));
-      const hours = Math.floor((totalSeconds % (24 * 60 * 60)) / 3600);
-      const minutes = Math.floor((totalSeconds % 3600) / 60);
-      const seconds = totalSeconds % 60;
+      const timelineTotal = target - timelineStart;
+      const timelineElapsed = now - timelineStart;
+      const rawPercent = (timelineElapsed / timelineTotal) * 100;
+      const percent = clamp(rawPercent, 0, 100);
 
-      daysEl.textContent = String(days);
-      hoursEl.textContent = String(hours).padStart(2, '0');
-      minutesEl.textContent = String(minutes).padStart(2, '0');
-      secondsEl.textContent = String(seconds).padStart(2, '0');
+      timelineProgressEl.style.width = `${percent}%`;
+      timelineMarkerEl.style.left = `${percent}%`;
+      timelineStatusEl.textContent = `${percent.toFixed(1)}% of the way from Jan 1 to Dec 4, 2026`;
     }
 
     updateCountdown();
