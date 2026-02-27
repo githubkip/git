@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Countdown to 2:30 PM Today</title>
+  <style>
+    :root { color-scheme: dark; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      background: #0f172a;
+      color: #e2e8f0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+    }
+    .card {
+      background: #111827;
+      border: 1px solid #334155;
+      border-radius: 16px;
+      padding: 28px;
+      width: min(700px, 92vw);
+      text-align: center;
+      box-shadow: 0 10px 25px rgba(0,0,0,.35);
+    }
+    h1 { margin: 0 0 8px; font-size: clamp(1.3rem, 3vw, 2rem); }
+    p { margin: 0 0 20px; color: #94a3b8; }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(80px, 1fr));
+      gap: 12px;
+    }
+    .unit {
+      background: #1e293b;
+      border-radius: 12px;
+      padding: 14px 8px;
+    }
+    .value {
+      font-size: clamp(1.4rem, 4vw, 2rem);
+      font-weight: 700;
+      display: block;
+      color: #f8fafc;
+    }
+    .label {
+      font-size: .82rem;
+      color: #94a3b8;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+    }
+
+    .timeline-wrap {
+      margin-top: 20px;
+      text-align: left;
+      background: #0b1220;
+      border: 1px solid #334155;
+      border-radius: 12px;
+      padding: 14px;
+    }
+    .timeline-title {
+      margin: 0 0 10px;
+      color: #cbd5e1;
+      font-weight: 600;
+      font-size: 0.95rem;
+    }
+    .timeline {
+      position: relative;
+      height: 14px;
+      background: #1f2937;
+      border-radius: 999px;
+      overflow: hidden;
+    }
+    .timeline-progress {
+      position: absolute;
+      inset: 0 auto 0 0;
+      width: 0%;
+      background: linear-gradient(90deg, #22d3ee, #3b82f6);
+      border-radius: 999px;
+      transition: width .4s ease;
+    }
+    .timeline-marker {
+      position: absolute;
+      top: 50%;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: #f8fafc;
+      box-shadow: 0 0 0 3px rgba(59,130,246,.25);
+      transform: translate(-50%, -50%);
+      transition: left .4s ease;
+    }
+    .timeline-labels {
+      margin-top: 10px;
+      display: flex;
+      justify-content: space-between;
+      font-size: .82rem;
+      color: #94a3b8;
+    }
+    .timeline-status {
+      margin-top: 8px;
+      text-align: center;
+      color: #cbd5e1;
+      font-size: .9rem;
+    }
+
+    .done {
+      margin-top: 18px;
+      font-weight: 600;
+      color: #22c55e;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <h1>Countdown to 2:30 PM (Local Time)</h1>
+    <p id="targetText">Target: Today at 2:30:00 PM</p>
+
+    <section class="grid" aria-live="polite">
+      <div class="unit"><span class="value" id="days">0</span><span class="label">Days</span></div>
+      <div class="unit"><span class="value" id="hours">0</span><span class="label">Hours</span></div>
+      <div class="unit"><span class="value" id="minutes">0</span><span class="label">Minutes</span></div>
+      <div class="unit"><span class="value" id="seconds">0</span><span class="label">Seconds</span></div>
+    </section>
+
+    <section class="timeline-wrap" aria-label="Timeline from midnight to today's countdown end time">
+      <h2 class="timeline-title">Today's Timeline Progress</h2>
+      <div class="timeline">
+        <div class="timeline-progress" id="timelineProgress"></div>
+        <div class="timeline-marker" id="timelineMarker" aria-hidden="true"></div>
+      </div>
+      <div class="timeline-labels">
+        <span id="startLabel">12:00 AM</span>
+        <span id="endLabel">2:30 PM</span>
+      </div>
+      <div class="timeline-status" id="timelineStatus">0% complete</div>
+    </section>
+
+    <div class="done" id="done">⏰ Countdown reached 0!</div>
+  </main>
+
+  <script>
+    const now = new Date();
+    const timelineStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+    const target = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 14, 30, 0, 0);
+
+    const daysEl = document.getElementById('days');
+    const hoursEl = document.getElementById('hours');
+    const minutesEl = document.getElementById('minutes');
+    const secondsEl = document.getElementById('seconds');
+    const doneEl = document.getElementById('done');
+
+    const timelineProgressEl = document.getElementById('timelineProgress');
+    const timelineMarkerEl = document.getElementById('timelineMarker');
+    const timelineStatusEl = document.getElementById('timelineStatus');
+    const startLabelEl = document.getElementById('startLabel');
+    const endLabelEl = document.getElementById('endLabel');
+    const targetTextEl = document.getElementById('targetText');
+
+    startLabelEl.textContent = timelineStart.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+    endLabelEl.textContent = target.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+    targetTextEl.textContent = `Target: Today at ${target.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', second: '2-digit' })}`;
+
+    function clamp(value, min, max) {
+      return Math.min(Math.max(value, min), max);
+    }
+
+    function updateCountdown() {
+      const current = new Date();
+      const diff = target - current;
+
+      if (diff <= 0) {
+        daysEl.textContent = '0';
+        hoursEl.textContent = '00';
+        minutesEl.textContent = '00';
+        secondsEl.textContent = '00';
+        doneEl.style.display = 'block';
+      } else {
+        const totalSeconds = Math.floor(diff / 1000);
+        const days = Math.floor(totalSeconds / (24 * 60 * 60));
+        const hours = Math.floor((totalSeconds % (24 * 60 * 60)) / 3600);
+        const minutes = Math.floor((totalSeconds % 3600) / 60);
+        const seconds = totalSeconds % 60;
+
+        daysEl.textContent = String(days);
+        hoursEl.textContent = String(hours).padStart(2, '0');
+        minutesEl.textContent = String(minutes).padStart(2, '0');
+        secondsEl.textContent = String(seconds).padStart(2, '0');
+      }
+
+      const timelineTotal = target - timelineStart;
+      const timelineElapsed = current - timelineStart;
+      const rawPercent = (timelineElapsed / timelineTotal) * 100;
+      const percent = clamp(rawPercent, 0, 100);
+
+      timelineProgressEl.style.width = `${percent}%`;
+      timelineMarkerEl.style.left = `${percent}%`;
+      timelineStatusEl.textContent = `${percent.toFixed(1)}% of the way from midnight to 2:30 PM`;
+
+      if (diff <= 0) {
+        clearInterval(timer);
+      }
+    }
+
+    updateCountdown();
+    const timer = setInterval(updateCountdown, 1000);
+  </script>
+</body>
+</html>
