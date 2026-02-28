@@ -114,6 +114,7 @@
       rows.push(`<div class="popup-kv"><strong>parcel_id:</strong> ${props.PARCEL_ID ?? ''}</div>`);
 
       const candidates = [
+        ['NAME_ONE', props.NAME_ONE],
         ['STREET', props.STREET],
         ['CITY_STATE', props.CITY_STATE],
         ['ZIPCODE', props.ZIPCODE],
@@ -140,6 +141,7 @@
     function makeSearchText(props) {
       return [
         props.PARCEL_ID,
+        props.NAME_ONE,
         props.STREET,
         props.CITY_STATE,
         props.ZIPCODE,
