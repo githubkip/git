@@ -24,7 +24,7 @@ services:
     build: .
     container_name: plain-city-telegram-bot
     restart: unless-stopped
-    command: ["python3", "scripts/telegram_query_bot.py"]
+    entrypoint: ["python3", "scripts/telegram_query_bot.py"]
     environment:
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
       TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
