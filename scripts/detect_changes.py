@@ -2,6 +2,7 @@
 """Detect parcel dataset changes and optionally send Telegram summary.
 
 Compares current GeoJSON with the last snapshot using PARCEL_ID as key.
+Supports optional watchlist filtering (parcel IDs of interest).
 """
 
 from __future__ import annotations
@@ -20,6 +21,7 @@ from typing import Any, Dict, Tuple
 DEFAULT_CURRENT = Path("data/plain_city_parcels.geojson")
 DEFAULT_BASELINE = Path("data/plain_city_parcels_last.geojson")
 DEFAULT_SUMMARY = Path("data/plain_city_changes_summary.json")
+DEFAULT_WATCHLIST = Path("data/watched_parcels.txt")
 
 COMPARE_FIELDS = [
     "STREET",
@@ -38,6 +40,18 @@ def load_geojson(path: Path) -> Dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def load_watchlist(path: Path) -> set[str]:
+    if not path.exists():
+        return set()
+    ids: set[str] = set()
+    for raw in path.read_text(encoding="utf-8").splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#"):
+            continue
+        ids.add(line)
+    return ids
+
+
 def geometry_hash(feature: Dict[str, Any]) -> str:
     geom = feature.get("geometry")
     payload = json.dumps(geom, sort_keys=True, separators=(",", ":"))
@@ -52,7 +66,7 @@ def to_index(geojson: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
         if not parcel_id:
             continue
         snapshot = {
-            "parcel_id": parcel_id,
+            "parcel_id": str(parcel_id),
             "geometry_hash": geometry_hash(ft),
             "properties": {k: props.get(k) for k in COMPARE_FIELDS},
         }
@@ -94,6 +108,21 @@ def compare(
     return added, removed, changed
 
 
+def filter_to_watchlist(
+    added: list[str],
+    removed: list[str],
+    changed: list[Dict[str, Any]],
+    watchlist: set[str],
+) -> Tuple[list[str], list[str], list[Dict[str, Any]]]:
+    if not watchlist:
+        return added, removed, changed
+
+    added_w = [pid for pid in added if pid in watchlist]
+    removed_w = [pid for pid in removed if pid in watchlist]
+    changed_w = [entry for entry in changed if entry.get("parcel_id") in watchlist]
+    return added_w, removed_w, changed_w
+
+
 def send_telegram_message(text: str) -> None:
     token = os.getenv("TELEGRAM_BOT_TOKEN")
     chat_id = os.getenv("TELEGRAM_CHAT_ID")
@@ -112,13 +141,19 @@ def send_telegram_message(text: str) -> None:
 
 def build_message(summary: Dict[str, Any]) -> str:
     stats = summary["stats"]
+    scope = summary.get("scope", {})
+    scope_label = "watched parcels" if scope.get("watchlist_enabled") else "all parcels"
+
     lines = [
-        "Plain City parcel change summary",
+        f"Plain City parcel change summary ({scope_label})",
         f"Current parcels: {stats['current_total']}",
         f"Added: {stats['added_count']}",
         f"Removed: {stats['removed_count']}",
         f"Changed: {stats['changed_count']}",
     ]
+
+    if scope.get("watchlist_enabled"):
+        lines.append(f"Watchlist size: {scope.get('watchlist_size', 0)}")
 
     sample = summary.get("samples", {})
     if sample.get("added"):
@@ -137,8 +172,10 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--current", type=Path, default=DEFAULT_CURRENT)
     p.add_argument("--baseline", type=Path, default=DEFAULT_BASELINE)
     p.add_argument("--summary", type=Path, default=DEFAULT_SUMMARY)
+    p.add_argument("--watchlist", type=Path, default=DEFAULT_WATCHLIST)
     p.add_argument("--sample-size", type=int, default=10)
     p.add_argument("--send-telegram", action="store_true")
+    p.add_argument("--send-when-no-changes", action="store_true")
     return p.parse_args()
 
 
@@ -148,6 +185,8 @@ def main() -> int:
     if not args.current.exists():
         raise FileNotFoundError(f"Current parcel file not found: {args.current}")
 
+    watchlist = load_watchlist(args.watchlist)
+
     current_geojson = load_geojson(args.current)
     current_idx = to_index(current_geojson)
 
@@ -156,6 +195,11 @@ def main() -> int:
         summary = {
             "status": "initialized",
             "message": "Baseline created from current parcel dataset; no diff available yet.",
+            "scope": {
+                "watchlist_enabled": bool(watchlist),
+                "watchlist_size": len(watchlist),
+                "watchlist_path": str(args.watchlist),
+            },
             "stats": {
                 "current_total": len(current_idx),
                 "added_count": 0,
@@ -170,16 +214,25 @@ def main() -> int:
     previous_geojson = load_geojson(args.baseline)
     previous_idx = to_index(previous_geojson)
 
-    added, removed, changed = compare(previous_idx, current_idx)
+    added_all, removed_all, changed_all = compare(previous_idx, current_idx)
+    added, removed, changed = filter_to_watchlist(added_all, removed_all, changed_all, watchlist)
 
     summary = {
         "status": "ok",
+        "scope": {
+            "watchlist_enabled": bool(watchlist),
+            "watchlist_size": len(watchlist),
+            "watchlist_path": str(args.watchlist),
+        },
         "stats": {
             "current_total": len(current_idx),
             "previous_total": len(previous_idx),
             "added_count": len(added),
             "removed_count": len(removed),
             "changed_count": len(changed),
+            "all_added_count": len(added_all),
+            "all_removed_count": len(removed_all),
+            "all_changed_count": len(changed_all),
         },
         "samples": {
             "added": added[: args.sample_size],
@@ -200,8 +253,12 @@ def main() -> int:
     print(msg)
 
     if args.send_telegram:
-        send_telegram_message(msg)
-        print("Telegram alert sent")
+        has_changes = (len(added) + len(removed) + len(changed)) > 0
+        if has_changes or args.send_when_no_changes:
+            send_telegram_message(msg)
+            print("Telegram alert sent")
+        else:
+            print("No watched parcel changes; Telegram alert skipped")
 
     return 0
 

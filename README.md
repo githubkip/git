@@ -189,6 +189,27 @@ python3 scripts/detect_changes.py \
   --send-telegram
 ```
 
+By default, with watchlist mode enabled, Telegram alerts are skipped when there are no watched parcel changes.
+Use `--send-when-no-changes` if you want an always-send heartbeat style alert.
+
+---
+
+## Watchlist: Notify Only for Specific Parcels
+
+To track only selected parcels, create:
+- `data/watched_parcels.txt`
+
+Format:
+- one parcel ID per line
+- blank lines allowed
+- `#` comments supported
+
+Example starter file:
+- `data/watched_parcels.txt.example`
+
+When `data/watched_parcels.txt` exists, `detect_changes.py` filters adds/removes/changes to watched IDs only.
+Summary output includes watchlist scope + size.
+
 ---
 
 ## Web Map Features
