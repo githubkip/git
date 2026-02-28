@@ -134,6 +134,15 @@ def format_parcel(props: Dict[str, Any]) -> str:
         v = props.get(k)
         if v not in (None, ""):
             lines.append(f"- {k}: {v}")
+
+    prop_street = str(props.get("PROP_STREET") or "").strip()
+    prop_city = str(props.get("PROP_CITY") or "").strip()
+    prop_zip = str(props.get("PROP_ZIP") or "").strip()
+    if prop_street and prop_city and prop_zip:
+        query = f"{prop_street}, {prop_city}, {prop_zip}"
+        maps_url = "https://www.google.com/maps/search/?api=1&query=" + urllib.parse.quote_plus(query)
+        lines.append(f"- Google Maps: {maps_url}")
+
     return "\n".join(lines)
 
 
