@@ -139,7 +139,7 @@ def send_telegram_message(text: str) -> None:
             raise RuntimeError(f"Telegram API returned error: {data}")
 
 
-def build_message(summary: Dict[str, Any]) -> str:
+def build_message(summary: Dict[str, Any], max_name_one_lines: int = 20) -> str:
     stats = summary["stats"]
     scope = summary.get("scope", {})
     scope_label = "watched parcels" if scope.get("watchlist_enabled") else "all parcels"
@@ -162,6 +162,26 @@ def build_message(summary: Dict[str, Any]) -> str:
         lines.append(f"Sample removed: {', '.join(sample['removed'])}")
     if sample.get("changed"):
         lines.append(f"Sample changed: {', '.join(sample['changed'])}")
+
+    changed_items = summary.get("details", {}).get("changed", [])
+    name_one_lines = []
+    for item in changed_items:
+        pid = item.get("parcel_id")
+        changes = item.get("changes", {})
+        if "NAME_ONE" not in changes:
+            continue
+        before = changes["NAME_ONE"].get("before")
+        after = changes["NAME_ONE"].get("after")
+        name_one_lines.append(
+            f"PARCEL_ID {pid}: NAME_ONE {before!r} -> {after!r}"
+        )
+
+    if name_one_lines:
+        lines.append("NAME_ONE changes:")
+        lines.extend(name_one_lines[:max_name_one_lines])
+        extra = len(name_one_lines) - max_name_one_lines
+        if extra > 0:
+            lines.append(f"... and {extra} more NAME_ONE changes")
 
     lines.append("(Changes reflect dataset updates, not verified residency changes.)")
     return "\n".join(lines)
