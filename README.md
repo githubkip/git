@@ -247,7 +247,7 @@ Supported commands:
 
 ### `/house` interactive behavior
 
-- Bot searches parcel addresses (`STREET`, fallback `PROP_STREET`)
+- Bot searches parcel addresses using `PROP_STREET`
 - If multiple results, returns first 10 matches as inline buttons
 - User taps a match, bot replies with full parcel details for that parcel ID
 

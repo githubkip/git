@@ -144,9 +144,8 @@ def find_house_matches(query: str) -> List[Dict[str, Any]]:
     matches: List[Dict[str, Any]] = []
     for ft in load_parcels():
         props = ft.get("properties", {})
-        street = str(props.get("STREET") or "")
         prop_street = str(props.get("PROP_STREET") or "")
-        haystack = f"{street} {prop_street}".lower()
+        haystack = prop_street.lower()
         if q in haystack:
             matches.append(props)
     return matches
@@ -219,7 +218,7 @@ def handle_house_command(bot: Bot, chat_id: int | str, query: str, reply_to: int
     keyboard = []
     for props in top:
         pid = str(props.get("PARCEL_ID", ""))
-        address = str(props.get("STREET") or props.get("PROP_STREET") or "(no address)")
+        address = str(props.get("PROP_STREET") or "(no PROP_STREET)")
         keyboard.append([{"text": f"{address} ({pid})", "callback_data": f"parcel:{pid}"}])
 
     bot.send_message(
