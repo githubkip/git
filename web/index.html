@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Plain City, UT Parcel Map (Public Data)</title>
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+    crossorigin=""
+  />
+  <style>
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      background: #0f172a;
+      color: #e2e8f0;
+    }
+    header {
+      padding: 12px 16px;
+      border-bottom: 1px solid #334155;
+      background: #111827;
+      position: sticky;
+      top: 0;
+      z-index: 1000;
+    }
+    h1 {
+      margin: 0 0 10px;
+      font-size: clamp(1rem, 2.8vw, 1.3rem);
+      font-weight: 700;
+    }
+    .controls {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    input[type="search"] {
+      flex: 1;
+      min-width: 260px;
+      padding: 8px 10px;
+      border-radius: 8px;
+      border: 1px solid #475569;
+      background: #0b1220;
+      color: #e2e8f0;
+    }
+    button {
+      border: 1px solid #475569;
+      background: #1e293b;
+      color: #e2e8f0;
+      border-radius: 8px;
+      padding: 8px 12px;
+      cursor: pointer;
+    }
+    #status {
+      margin-top: 8px;
+      color: #94a3b8;
+      font-size: 0.9rem;
+    }
+    #map {
+      height: calc(100vh - 120px);
+      width: 100%;
+    }
+    .leaflet-popup-content {
+      margin: 10px 12px;
+      line-height: 1.4;
+    }
+    .popup-kv {
+      margin: 2px 0;
+      font-size: 0.9rem;
+    }
+    .popup-kv strong {
+      color: #0f172a;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Plain City, UT Parcel Map (Public Data)</h1>
+    <div class="controls">
+      <input id="searchInput" type="search" placeholder="Search parcel_id or address..." />
+      <button id="searchBtn">Search</button>
+      <button id="resetBtn">Reset</button>
+    </div>
+    <div id="status">Loading parcels...</div>
+  </header>
+
+  <div id="map"></div>
+
+  <script
+    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+    crossorigin=""
+  ></script>
+  <script>
+    const MAP_DATA_URL = '/data/plain_city_parcels.geojson';
+
+    const map = L.map('map');
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 20,
+      attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(map);
+
+    let parcelLayer = null;
+    let allFeatures = [];
+
+    const statusEl = document.getElementById('status');
+    const searchInput = document.getElementById('searchInput');
+    const searchBtn = document.getElementById('searchBtn');
+    const resetBtn = document.getElementById('resetBtn');
+
+    function popupHtml(props) {
+      const rows = [];
+      rows.push(`<div class="popup-kv"><strong>parcel_id:</strong> ${props.PARCEL_ID ?? ''}</div>`);
+
+      const candidates = [
+        ['STREET', props.STREET],
+        ['CITY_STATE', props.CITY_STATE],
+        ['ZIPCODE', props.ZIPCODE],
+        ['PROP_STREET', props.PROP_STREET],
+        ['PROP_CITY', props.PROP_CITY],
+        ['PROP_ZIP', props.PROP_ZIP]
+      ];
+
+      let anyAddress = false;
+      for (const [k, v] of candidates) {
+        if (v !== null && v !== undefined && String(v).trim() !== '') {
+          anyAddress = true;
+          rows.push(`<div class="popup-kv"><strong>${k}:</strong> ${v}</div>`);
+        }
+      }
+
+      if (!anyAddress) {
+        rows.push('<div class="popup-kv"><em>No address fields available</em></div>');
+      }
+
+      return rows.join('');
+    }
+
+    function makeSearchText(props) {
+      return [
+        props.PARCEL_ID,
+        props.STREET,
+        props.CITY_STATE,
+        props.ZIPCODE,
+        props.PROP_STREET,
+        props.PROP_CITY,
+        props.PROP_ZIP
+      ]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase();
+    }
+
+    function renderFeatures(features) {
+      if (parcelLayer) map.removeLayer(parcelLayer);
+
+      parcelLayer = L.geoJSON({ type: 'FeatureCollection', features }, {
+        style: {
+          color: '#1d4ed8',
+          weight: 1,
+          opacity: 0.8,
+          fillColor: '#38bdf8',
+          fillOpacity: 0.2
+        },
+        onEachFeature: (feature, layer) => {
+          layer.bindPopup(popupHtml(feature.properties || {}));
+        }
+      }).addTo(map);
+
+      if (features.length) {
+        map.fitBounds(parcelLayer.getBounds(), { padding: [20, 20] });
+      }
+
+      statusEl.textContent = `Showing ${features.length.toLocaleString()} parcel polygons`;
+    }
+
+    function applySearch() {
+      const q = searchInput.value.trim().toLowerCase();
+      if (!q) {
+        renderFeatures(allFeatures);
+        return;
+      }
+
+      const filtered = allFeatures.filter((f) => {
+        const props = f.properties || {};
+        return makeSearchText(props).includes(q);
+      });
+
+      renderFeatures(filtered);
+
+      if (!filtered.length) {
+        statusEl.textContent = `No matches for "${searchInput.value.trim()}"`;
+      } else {
+        statusEl.textContent = `Found ${filtered.length.toLocaleString()} match(es) for "${searchInput.value.trim()}"`;
+      }
+    }
+
+    async function loadData() {
+      try {
+        const res = await fetch(MAP_DATA_URL);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const geojson = await res.json();
+        allFeatures = geojson.features || [];
+        renderFeatures(allFeatures);
+      } catch (err) {
+        statusEl.textContent = `Failed to load parcel data: ${err.message}`;
+      }
+    }
+
+    searchBtn.addEventListener('click', applySearch);
+    searchInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') applySearch();
+    });
+    resetBtn.addEventListener('click', () => {
+      searchInput.value = '';
+      renderFeatures(allFeatures);
+    });
+
+    loadData();
+  </script>
+</body>
+</html>
