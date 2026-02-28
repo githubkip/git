@@ -19,3 +19,15 @@ services:
       - ./data:/app/data
       - ./web:/app/web:ro
       - ./scripts:/app/scripts:ro
+
+  plain-city-telegram-bot:
+    build: .
+    container_name: plain-city-telegram-bot
+    restart: unless-stopped
+    command: ["python3", "scripts/telegram_query_bot.py"]
+    environment:
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
+    volumes:
+      - ./data:/app/data
+      - ./scripts:/app/scripts:ro

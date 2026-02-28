@@ -219,8 +219,37 @@ Summary output includes watchlist scope + size.
 - Click popup shows:
   - `parcel_id` (`PARCEL_ID`)
   - available address fields (`STREET`, `CITY_STATE`, `ZIPCODE`, `PROP_STREET`, `PROP_CITY`, `PROP_ZIP`)
-- Search supports parcel ID or address string matches
+  - owner/mailing name field when present (`NAME_ONE`)
+- Search supports parcel ID, owner name, or address string matches
 - Title displayed: **"Plain City, UT Parcel Map (Public Data)"**
+
+---
+
+## Telegram Query Bot (Inbound Commands)
+
+A companion polling bot is included:
+- `scripts/telegram_query_bot.py`
+- Compose service: `plain-city-telegram-bot`
+
+Start services:
+
+```bash
+docker compose up -d --build
+```
+
+Supported commands:
+- `/help`
+- `/parcel <PARCEL_ID>`
+- `/house <house number or address fragment>`
+- `/changes`
+- `/change <PARCEL_ID>`
+- `/watched`
+
+### `/house` interactive behavior
+
+- Bot searches parcel addresses (`STREET`, fallback `PROP_STREET`)
+- If multiple results, returns first 10 matches as inline buttons
+- User taps a match, bot replies with full parcel details for that parcel ID
 
 ---
 
