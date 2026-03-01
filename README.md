@@ -245,6 +245,13 @@ Supported commands:
 - `/change <PARCEL_ID>`
 - `/watched`
 
+Access control (recommended):
+- `ALLOWED_TELEGRAM_USER_IDS` = comma-separated Telegram user IDs allowed to query
+- `ALLOWED_TELEGRAM_CHAT_IDS` = comma-separated chat IDs allowed to query
+
+If both are unset, bot allows all users (backward-compatible default).
+If either is set, only matching user/chat IDs are authorized.
+
 ### `/house` interactive behavior
 
 - Bot searches parcel addresses using `PROP_STREET`

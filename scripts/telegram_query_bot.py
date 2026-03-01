@@ -18,7 +18,7 @@ import time
 import urllib.parse
 import urllib.request
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Set
 
 DATA_PARCELS = Path("data/plain_city_parcels.geojson")
 DATA_SUMMARY = Path("data/plain_city_changes_summary.json")
@@ -28,6 +28,22 @@ OFFSET_FILE = Path("data/telegram_offset.txt")
 POLL_TIMEOUT_SECONDS = 30
 SLEEP_ON_ERROR_SECONDS = 5
 MAX_HOUSE_RESULTS = 10
+
+
+def parse_int_set_env(name: str) -> Set[int]:
+    raw = os.getenv(name, "").strip()
+    if not raw:
+        return set()
+    out: Set[int] = set()
+    for part in raw.split(","):
+        p = part.strip()
+        if not p:
+            continue
+        try:
+            out.add(int(p))
+        except ValueError:
+            print(f"Ignoring invalid integer in {name}: {p!r}")
+    return out
 
 
 class Bot:
@@ -262,10 +278,32 @@ def parse_command(text: str) -> tuple[str, str]:
     return cmd, arg
 
 
+def is_authorized(user_id: int | None, chat_id: int | None) -> bool:
+    allowed_users = parse_int_set_env("ALLOWED_TELEGRAM_USER_IDS")
+    allowed_chats = parse_int_set_env("ALLOWED_TELEGRAM_CHAT_IDS")
+
+    # If no allowlists are configured, allow all (backward-compatible default).
+    if not allowed_users and not allowed_chats:
+        return True
+
+    if allowed_users and user_id in allowed_users:
+        return True
+    if allowed_chats and chat_id in allowed_chats:
+        return True
+    return False
+
+
 def handle_message(bot: Bot, msg: Dict[str, Any]) -> None:
-    chat_id = msg.get("chat", {}).get("id")
+    chat = msg.get("chat", {})
+    chat_id = chat.get("id")
     if chat_id is None:
         return
+    user_id = (msg.get("from") or {}).get("id")
+
+    if not is_authorized(user_id, chat_id):
+        bot.send_message(chat_id, "Unauthorized.")
+        return
+
     text = msg.get("text", "")
     reply_to = msg.get("message_id")
     cmd, arg = parse_command(text)
@@ -306,11 +344,16 @@ def handle_callback_query(bot: Bot, cq: Dict[str, Any]) -> None:
     message = cq.get("message", {})
     chat_id = message.get("chat", {}).get("id")
     reply_to = message.get("message_id")
+    user_id = (cq.get("from") or {}).get("id")
 
     if qid:
         bot.answer_callback_query(qid)
 
     if chat_id is None:
+        return
+
+    if not is_authorized(user_id, chat_id):
+        bot.send_message(chat_id, "Unauthorized.")
         return
 
     if data.startswith("parcel:"):
